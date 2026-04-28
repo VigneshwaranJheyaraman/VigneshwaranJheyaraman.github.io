@@ -1,3 +1,18 @@
 theme: jekyll-theme-minimal
 title: VickySuraj's Portfolio
 description: My Thoughts
+
+# Collections for project previews
+collections:
+  project_previews:
+    output: true
+    permalink: /projects/preview/:name
+
+# Defaults for project previews
+defaults:
+  - scope:
+      path: "pages/projects/456a2609e0482c10"
+      type: "project_previews"
+    values:
+      layout: "project"
+      preview_name: "dreamwellventures"
