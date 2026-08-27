@@ -7,6 +7,12 @@ collections:
 # Defaults for project previews
 defaults:
   - scope:
+      path: "_project_previews/pages/personal/bro_stuck_in_the_loop"
+      type: "project_previews"
+    values:
+      layout: "project"
+      preview_name: "bro_stuck_in_the_loop"
+  - scope:
       path: "pages/projects/456a2609e0482c10"
       type: "project_previews"
     values:

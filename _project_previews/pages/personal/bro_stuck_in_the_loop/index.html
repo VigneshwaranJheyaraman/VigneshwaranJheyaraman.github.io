@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>awesomeyeah's Batch Loop - A 3D Cinematic Tragedy</title>
+    <script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+        #canvas3d {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* ── HUD ── */
+        .hud {
+            position: fixed; top: 16px; left: 16px;
+            background: rgba(0,0,0,.75);
+            border: 1px solid #0f0;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #0f0;
+            z-index: 200;
+            text-shadow: 0 0 4px #0f0;
+            min-width: 220px;
+            line-height: 1.6;
+        }
+        .hud .title { color: #ff0; font-weight: bold; margin-bottom: 6px; font-size: 14px; }
+        .hud .row { display: flex; justify-content: space-between; }
+        .hud .label { color: #ff0; }
+
+        /* ── Narrator ── */
+        .narrator {
+            position: fixed; bottom: 16px; left: 16px; right: 16px;
+            background: rgba(0,0,0,.85);
+            border: 1px solid #0f0;
+            padding: 14px 20px;
+            font-size: 15px;
+            color: #0f0;
+            z-index: 200;
+            text-align: center;
+            text-shadow: 0 0 6px #0f0;
+            line-height: 1.5;
+            transition: opacity .4s;
+        }
+
+        /* ── Big notification popup ── */
+        .notif {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%,-50%) scale(0);
+            background: rgba(0,0,0,.92);
+            border: 3px solid #f00;
+            padding: 30px 50px;
+            text-align: center;
+            font-size: 2.4em;
+            font-weight: bold;
+            color: #f00;
+            z-index: 400;
+            text-shadow: 0 0 20px #f00;
+            transition: transform .35s cubic-bezier(.4,2,.6,1), opacity .35s;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .notif.show { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+
+        /* ── Controls ── */
+        .controls {
+            position: fixed; top: 16px; right: 16px;
+            display: flex; gap: 8px;
+            z-index: 200;
+        }
+        .controls button {
+            background: rgba(0,255,0,.15);
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            transition: background .2s;
+        }
+        .controls button:hover { background: rgba(0,255,0,.35); }
+
+        .loop-badge {
+            position: fixed; bottom: 16px; right: 16px;
+            background: rgba(0,0,0,.7);
+            border: 1px solid #f00;
+            color: #f00;
+            padding: 8px 14px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 200;
+            animation: blink .6s infinite;
+        }
+        @keyframes blink { 50% { opacity: .3; } }
+    </style>
+</head>
+<body>
+
+<canvas id="canvas3d"></canvas>
+
+<!-- HUD -->
+<div class="hud">
+    <div class="title" id="hud-title">SCENE 1 : THE CREATION</div>
+    <div class="row"><span class="label">Time</span><span id="hud-time">14:00</span></div>
+    <div class="row"><span class="label">Loop</span><span id="hud-loop">1</span></div>
+    <div class="row"><span class="label">Batches</span><span id="hud-batches">0 / 11 650</span></div>
+    <div class="row"><span class="label">IDs processed</span><span id="hud-ids">0</span></div>
+</div>
+
+<!-- Narrator -->
+<div class="narrator" id="narrator">awesomeyeah opens her laptop. Today she ships the Salesforce batch update.</div>
+
+<!-- Notification -->
+<div class="notif" id="notif"></div>
+
+<!-- Controls -->
+<div class="controls">
+    <button onclick="togglePause()">⏯ Pause</button>
+    <button onclick="skipScene()">⏭ Skip</button>
+    <button onclick="location.reload()">↻ Reset</button>
+</div>
+
+<div class="loop-badge">∞ LOOP <span id="loop-num">1</span></div>
+
+<script>
+// ─────────────────────────────────────────────────────
+// PIXEL ART SPRITE SHEET — drawn on offscreen canvas
+// ─────────────────────────────────────────────────────
+function drawPixelCharacter(pose) {
+    const size = 128;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const s = size / 16; // one "pixel" = 8px
+
+    const draw = (x, y, w, h, color) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(x * s, y * s, w * s, h * s);
+    };
+
+    // palette
+    const skin   = '#f5c9a0';
+    const hair   = '#3a2010';
+    const shirt  = '#e74c3c';
+    const pants  = '#2c3e50';
+    const shoes  = '#1a1a1a';
+    const eye    = '#000';
+    const mouth  = '#c0392b';
+
+    // Hair — long flowing hair
+    draw(5, 0, 6, 1, hair);       // top
+    draw(4, 0.5, 8, 2, hair);     // crown
+    draw(3, 2, 1, 6, hair);       // left side flowing down
+    draw(12, 2, 1, 6, hair);      // right side flowing down
+    draw(3, 8, 1, 3, hair);       // left long strand
+    draw(12, 8, 1, 3, hair);      // right long strand
+    draw(4, 2, 1, 4, hair);       // left inner
+    draw(11, 2, 1, 4, hair);      // right inner
+    draw(2, 4, 1, 5, hair);       // far left strand
+    draw(13, 4, 1, 5, hair);      // far right strand
+
+    // Face
+    draw(5, 2, 6, 4, skin);
+
+    // Eyes
+    if (pose === 'shock') {
+        // Wide open eyes
+        draw(6, 3, 2, 2, '#fff');
+        draw(9, 3, 2, 2, '#fff');
+        draw(6.5, 3.5, 1, 1, eye);
+        draw(9.5, 3.5, 1, 1, eye);
+        // Open mouth
+        draw(7, 5, 2, 1, '#000');
+    } else if (pose === 'away') {
+        // Looking sideways
+        draw(6, 3, 1, 1, eye);
+        draw(9, 3, 1, 1, eye);
+        draw(7, 5, 1, 0.5, mouth);
+    } else {
+        // Normal / typing
+        draw(6, 3, 1, 1, eye);
+        draw(9, 3, 1, 1, eye);
+        draw(7, 5, 2, 0.5, skin); // slight smile
+    }
+
+    // Neck
+    draw(7, 6, 2, 1, skin);
+
+    // Shirt / body
+    draw(4, 7, 8, 4, shirt);
+    // Collar
+    draw(7, 7, 2, 1, '#c0392b');
+
+    // Arms
+    if (pose === 'typing') {
+        draw(2, 7, 2, 3, shirt);
+        draw(12, 7, 2, 3, shirt);
+        draw(2, 10, 2, 1, skin);
+        draw(12, 10, 2, 1, skin);
+    } else if (pose === 'shock') {
+        // Hands up
+        draw(2, 5, 2, 4, shirt);
+        draw(12, 5, 2, 4, shirt);
+        draw(2, 4, 2, 1, skin);
+        draw(12, 4, 2, 1, skin);
+    } else if (pose === 'away') {
+        draw(3, 8, 2, 3, shirt);
+        draw(11, 8, 2, 3, shirt);
+        draw(3, 11, 2, 1, skin);
+        draw(11, 11, 2, 1, skin);
+    } else {
+        draw(3, 7, 2, 3, shirt);
+        draw(11, 7, 2, 3, shirt);
+        draw(3, 10, 2, 1, skin);
+        draw(11, 10, 2, 1, skin);
+    }
+
+    // Pants
+    draw(5, 11, 3, 3, pants);
+    draw(8, 11, 3, 3, pants);
+
+    // Shoes
+    draw(4, 14, 3, 1, shoes);
+    draw(9, 14, 3, 1, shoes);
+
+    return c;
+}
+
+// ─────────────────────────────────────────────────────
+// DYNAMIC MONITOR TEXTURE — rendered via offscreen canvas
+// ─────────────────────────────────────────────────────
+const monitorCanvas = document.createElement('canvas');
+monitorCanvas.width = 512;
+monitorCanvas.height = 512;
+const mctx = monitorCanvas.getContext('2d');
+
+function renderMonitor(lines, progressPct, isError) {
+    mctx.fillStyle = '#0a0a0a';
+    mctx.fillRect(0, 0, 512, 512);
+
+    const fg = isError ? '#ff3333' : '#00ff00';
+    mctx.font = '16px Courier New, monospace';
+    mctx.textBaseline = 'top';
+
+    lines.forEach((line, i) => {
+        if (line.startsWith('❌') || line.startsWith('⚠')) {
+            mctx.fillStyle = line.startsWith('❌') ? '#ff3333' : '#ffff00';
+        } else if (line.startsWith('✓')) {
+            mctx.fillStyle = '#00ff00';
+        } else {
+            mctx.fillStyle = fg;
+        }
+        mctx.fillText(line, 14, 14 + i * 22);
+    });
+
+    // progress bar
+    const barY = 460;
+    mctx.fillStyle = '#222';
+    mctx.fillRect(14, barY, 484, 20);
+    const barColor = isError ? '#ff3333' : '#00ff00';
+    mctx.fillStyle = barColor;
+    mctx.fillRect(14, barY, 484 * progressPct, 20);
+    mctx.fillStyle = '#000';
+    mctx.font = '12px Courier New';
+    mctx.fillText(Math.floor(progressPct * 100) + '%', 240, barY + 4);
+}
+
+// ─────────────────────────────────────────────────────
+// PLAYCANVAS SETUP
+// ─────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas3d');
+const app = new pc.Application(canvas, {
+    mouse: new pc.Mouse(canvas),
+    graphicsDeviceOptions: { antialias: true, alpha: false, preserveDrawingBuffer: false }
+});
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+app.setCanvasResolution(pc.RESOLUTION_AUTO);
+window.addEventListener('resize', () => app.resizeCanvas());
+
+// ── helpers ──
+function mat(r, g, b, er, eg, eb) {
+    const m = new pc.StandardMaterial();
+    m.diffuse = new pc.Color(r, g, b);
+    if (er !== undefined) m.emissive = new pc.Color(er, eg, eb);
+    m.update();
+    return m;
+}
+
+function box(name, sx, sy, sz, px, py, pz, material, parent) {
+    const e = new pc.Entity(name);
+    e.addComponent('render', { type: 'box' });
+    e.render.meshInstances[0].material = material;
+    e.setLocalScale(sx, sy, sz);
+    e.setLocalPosition(px, py, pz);
+    (parent || app.root).addChild(e);
+    return e;
+}
+
+function sphere(name, s, px, py, pz, material, parent) {
+    const e = new pc.Entity(name);
+    e.addComponent('render', { type: 'sphere' });
+    e.render.meshInstances[0].material = material;
+    e.setLocalScale(s, s, s);
+    e.setLocalPosition(px, py, pz);
+    (parent || app.root).addChild(e);
+    return e;
+}
+
+// ── camera ──
+const cam = new pc.Entity('cam');
+cam.addComponent('camera', { clearColor: new pc.Color(0.08, 0.08, 0.12), fov: 55 });
+app.root.addChild(cam);
+
+// ── lights ──
+const dirLight = new pc.Entity('dir');
+dirLight.addComponent('light', {
+    type: 'directional', color: new pc.Color(1, .95, .85),
+    intensity: 1.2, castShadows: true, shadowBias: 0.05,
+    normalOffsetBias: 0.03, shadowResolution: 2048
+});
+dirLight.setLocalEulerAngles(-40, 30, 0);
+app.root.addChild(dirLight);
+
+const fillLight = new pc.Entity('fill');
+fillLight.addComponent('light', {
+    type: 'directional', color: new pc.Color(.3, .35, .5), intensity: .6
+});
+fillLight.setLocalEulerAngles(20, -60, 0);
+app.root.addChild(fillLight);
+
+// desk lamp (point light near monitor)
+const deskLamp = new pc.Entity('lamp');
+deskLamp.addComponent('light', {
+    type: 'point', color: new pc.Color(0, 1, 0),
+    intensity: 0.6, range: 4
+});
+deskLamp.setLocalPosition(0, 2.6, 0.2);
+app.root.addChild(deskLamp);
+
+// ── room ──
+const floorMat  = mat(.18, .18, .2);
+const wallMat   = mat(.22, .22, .28);
+const ceilMat   = mat(.15, .15, .18);
+box('floor', 12, .1, 10, 0, -1, 0, floorMat);
+box('backWall', 12, 6, .1, 0, 2, -4.5, wallMat);
+box('leftWall', .1, 6, 10, -6, 2, 0, wallMat);
+box('rightWall', .1, 6, 10, 6, 2, 0, wallMat);
+box('ceiling', 12, .1, 10, 0, 5, 0, ceilMat);
+
+// ── desk ──
+const deskMat = mat(.35, .2, .08);
+const deskTop = box('deskTop', 3.5, .08, 1.4, 0, .75, -1, deskMat);
+// legs
+box('dl1', .08, .85, .08, -1.6, .33, -1.6, deskMat);
+box('dl2', .08, .85, .08,  1.6, .33, -1.6, deskMat);
+box('dl3', .08, .85, .08, -1.6, .33, -.4, deskMat);
+box('dl4', .08, .85, .08,  1.6, .33, -.4, deskMat);
+
+// ── chair ──
+const chairMat = mat(.15, .15, .15);
+const chairSeat = box('seat', .7, .06, .6, 0, .55, .2, chairMat);
+box('chairBack', .7, .7, .06, 0, .9, -.08, chairMat);
+// chair legs
+box('cl1', .04, .55, .04, -.3, .27, .4, chairMat);
+box('cl2', .04, .55, .04,  .3, .27, .4, chairMat);
+box('cl3', .04, .55, .04, -.3, .27, 0, chairMat);
+box('cl4', .04, .55, .04,  .3, .27, 0, chairMat);
+
+// ── monitor ──
+const monMat = mat(.1, .1, .1);
+const monitorBody = box('monBody', 1.4, .9, .06, 0, 1.7, -1.5, monMat);
+// stand
+box('monStand', .15, .4, .15, 0, 1.05, -1.5, monMat);
+box('monBase', .6, .04, .35, 0, .83, -1.5, monMat);
+
+// ── screen ── uses dynamic canvas texture
+const screenMat = new pc.StandardMaterial();
+screenMat.emissive = new pc.Color(0, 1, 0);
+screenMat.useLighting = false;
+const screenTex = new pc.Texture(app.graphicsDevice, {
+    width: 512, height: 512,
+    format: pc.PIXELFORMAT_RGBA8,
+    mipmaps: false,
+    minFilter: pc.FILTER_LINEAR,
+    magFilter: pc.FILTER_LINEAR
+});
+screenMat.emissiveMap = screenTex;
+screenMat.update();
+
+const screenEntity = box('screen', 1.3, .8, .01, 0, 1.7, -1.46, screenMat);
+
+// ── keyboard & mouse ──
+box('keyboard', .55, .02, .2, -.1, .82, -.85, mat(.08, .08, .08));
+box('mouse', .08, .015, .12, .4, .82, -.8, mat(.08, .08, .08));
+
+// ── coffee mug ──
+const mugMat = mat(.85, .85, .85);
+const mug = new pc.Entity('mug');
+mug.addComponent('render', { type: 'cylinder' });
+mug.render.meshInstances[0].material = mugMat;
+mug.setLocalScale(.12, .15, .12);
+mug.setLocalPosition(1.2, .88, -.7);
+app.root.addChild(mug);
+
+// ── plant ──
+const potMat = mat(.5, .25, .1);
+const pot = new pc.Entity('pot');
+pot.addComponent('render', { type: 'cylinder' });
+pot.render.meshInstances[0].material = potMat;
+pot.setLocalScale(.2, .25, .2);
+pot.setLocalPosition(-1.4, .88, -1.2);
+app.root.addChild(pot);
+// leaves
+sphere('leaf1', .15, -1.4, 1.15, -1.2, mat(.1, .5, .15));
+sphere('leaf2', .12, -1.35, 1.22, -1.15, mat(.15, .55, .1));
+sphere('leaf3', .1, -1.45, 1.2, -1.25, mat(.1, .45, .2));
+
+// ── helper: make a sprite texture from a canvas ──
+function makeSpriteTex(canvasEl) {
+    const tex = new pc.Texture(app.graphicsDevice, {
+        width: 128, height: 128,
+        format: pc.PIXELFORMAT_RGBA8,
+        mipmaps: false,
+        minFilter: pc.FILTER_NEAREST,
+        magFilter: pc.FILTER_NEAREST
+    });
+    const src = canvasEl.getContext('2d').getImageData(0, 0, 128, 128);
+    const dst = tex.lock();
+    dst.set(src.data);
+    tex.unlock();
+    return tex;
+}
+
+// ── helper: create a billboard sprite entity ──
+function createCharacter(name, posesObj) {
+    const textures = {};
+    for (const [pose, canvasEl] of Object.entries(posesObj)) {
+        textures[pose] = makeSpriteTex(canvasEl);
+    }
+    const firstTex = Object.values(textures)[0];
+
+    const cMat = new pc.StandardMaterial();
+    cMat.diffuseMap = firstTex;
+    cMat.emissiveMap = firstTex;
+    cMat.emissive = new pc.Color(.35, .35, .35);
+    cMat.opacityMap = firstTex;
+    cMat.blendType = pc.BLEND_NORMAL;
+    cMat.useLighting = false;
+    cMat.depthWrite = true;
+    cMat.cull = pc.CULLFACE_NONE;
+    cMat.update();
+
+    // pivot keeps the plane upright; inner plane is rotated 90 on X
+    const pivot = new pc.Entity(name);
+    pivot.setLocalPosition(0, 1.1, .2);
+    app.root.addChild(pivot);
+
+    const plane = new pc.Entity(name + '_plane');
+    plane.addComponent('render', { type: 'plane' });
+    plane.render.meshInstances[0].material = cMat;
+    plane.setLocalScale(1.6, 1, 2.2);
+    plane.setLocalEulerAngles(90, 0, 0);  // stand upright
+    pivot.addChild(plane);
+
+    return {
+        pivot,
+        mat: cMat,
+        textures,
+        setPos(x, y, z) { pivot.setLocalPosition(x, y, z); },
+        setPose(pose) {
+            const t = textures[pose] || Object.values(textures)[0];
+            cMat.diffuseMap = t;
+            cMat.emissiveMap = t;
+            cMat.opacityMap = t;
+            cMat.update();
+        },
+        faceCamera() {
+            const cp = cam.getLocalPosition();
+            const pp = pivot.getLocalPosition();
+            const a = Math.atan2(cp.x - pp.x, cp.z - pp.z) * (180 / Math.PI);
+            pivot.setLocalEulerAngles(0, a, 0);
+        },
+        show() { pivot.enabled = true; },
+        hide() { pivot.enabled = false; }
+    };
+}
+
+// ── JV pixel art ──
+function drawJVCharacter(pose) {
+    const size = 128;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const s = size / 16;
+
+    const draw = (x, y, w, h, color) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(x * s, y * s, w * s, h * s);
+    };
+
+    const skin  = '#d4a574';
+    const hair  = '#1a1a2e';
+    const shirt = '#2196F3';
+    const pants = '#1a1a2e';
+    const shoes = '#111';
+    const eye   = '#000';
+
+    // Hair (styled)
+    draw(5, 0, 6, 1, hair);
+    draw(4, 1, 8, 2, hair);
+
+    // Face
+    draw(5, 2, 6, 4, skin);
+
+    // Sunglasses (smart guy vibes)
+    if (pose === 'cool') {
+        draw(5.5, 3, 2, 1, '#111');
+        draw(8.5, 3, 2, 1, '#111');
+        draw(7.5, 3, 1, .5, '#333');
+        draw(7, 5, 2, .5, skin);
+    } else if (pose === 'thinking') {
+        draw(6, 3, 1, 1, eye);
+        draw(9, 3, 1, 1, eye);
+        // hand on chin
+        draw(7, 5.5, 2, .5, skin);
+    } else if (pose === 'facepalm') {
+        draw(5, 2, 6, 4, skin);
+        draw(5.5, 3, 5, 2, skin); // hand over face
+        draw(6, 3.5, 1, .5, '#ccc');
+    } else {
+        draw(6, 3, 1, 1, eye);
+        draw(9, 3, 1, 1, eye);
+        draw(7, 5, 2, .5, skin);
+    }
+
+    // Neck
+    draw(7, 6, 2, 1, skin);
+
+    // Shirt (blue, sharp)
+    draw(4, 7, 8, 4, shirt);
+    // Tie
+    draw(7.5, 7, 1, 3, '#ff9800');
+
+    // Arms
+    if (pose === 'thinking') {
+        draw(2, 7, 2, 3, shirt);
+        draw(12, 6, 2, 4, shirt);
+        draw(12, 5, 2, 1, skin); // hand near chin
+        draw(2, 10, 2, 1, skin);
+    } else if (pose === 'facepalm') {
+        draw(2, 7, 2, 3, shirt);
+        draw(12, 7, 2, 3, shirt);
+        draw(2, 10, 2, 1, skin);
+        draw(12, 10, 2, 1, skin);
+    } else if (pose === 'pointing') {
+        draw(2, 7, 2, 3, shirt);
+        draw(12, 6, 3, 1, shirt);
+        draw(15, 6, 1, 1, skin); // pointing finger
+        draw(2, 10, 2, 1, skin);
+    } else {
+        draw(3, 7, 2, 3, shirt);
+        draw(11, 7, 2, 3, shirt);
+        draw(3, 10, 2, 1, skin);
+        draw(11, 10, 2, 1, skin);
+    }
+
+    // Pants
+    draw(5, 11, 3, 3, pants);
+    draw(8, 11, 3, 3, pants);
+
+    // Shoes
+    draw(4, 14, 3, 1, shoes);
+    draw(9, 14, 3, 1, shoes);
+
+    return c;
+}
+
+// ── create awesomeyeah ──
+const awesomeyeahPoses = {};
+['typing', 'away', 'shock', 'idle'].forEach(p => { awesomeyeahPoses[p] = drawPixelCharacter(p); });
+const charEntity = createCharacter('awesomeyeah', awesomeyeahPoses);
+
+// ── create JV ──
+const jvPoses = {};
+['cool', 'thinking', 'facepalm', 'pointing', 'idle'].forEach(p => { jvPoses[p] = drawJVCharacter(p); });
+const jvEntity = createCharacter('jv', jvPoses);
+jvEntity.hide();
+
+// legacy wrapper
+function setCharPose(pose) { charEntity.setPose(pose); }
+
+// ─────────────────────────────────────────────────────
+// SCENE LOGIC
+// ─────────────────────────────────────────────────────
+const SCENES = [
+    { name: 'THE CREATION',     time: '14:00', dur: 9 },
+    { name: 'PRESS RUN',        time: '14:05', dur: 7 },
+    { name: 'STILL RUNNING...', time: '15:30', dur: 10 },
+    { name: 'THE RETURN',       time: '17:00', dur: 9 },
+    { name: 'SHOCK & HORROR',   time: '17:01', dur: 8 },
+    { name: 'CALLING JV',       time: '17:03', dur: 10 },
+    { name: 'JV INVESTIGATES',  time: '17:10', dur: 12 },
+];
+const totalDur = SCENES.reduce((a, s) => a + s.dur, 0);
+
+let elapsed   = 0;
+let paused    = false;
+let loopCount = 1;
+let batchCounter = 0;
+let lastScene = -1;
+
+const narrations = [
+    "awesomeyeah sits at her desk. She's built a beautiful Salesforce batch updater. 50,000 IDs. Easy.",
+    "She clicks RUN. The terminal lights up green. Batches start flowing. Life is good.",
+    "She grabs coffee... takes a walk... checks Slack... 90 minutes later the script is STILL running. Huh.",
+    "She returns to her desk. Stares at the screen. Scrolls through the logs. Wait... these IDs look familiar...",
+    "THE SAME 50,000 IDS — PROCESSED 233 TIMES EACH! 11,650 BATCH FILES! NOOOOOOOO!",
+    "awesomeyeah picks up the phone: \"JV! JV COME QUICK! SOMETHING IS VERY WRONG WITH MY SCRIPT!\"",
+    "JV walks in. Cool. Calm. Collected. One look at the logs... *facepalm* \"You looped the loop, sis.\"",
+];
+
+const camFrames = [
+    { pos: [2.5, 2.2, 3],    look: [0, 1.2, -.5] },
+    { pos: [.5, 2, 1.5],     look: [0, 1.5, -1.5] },
+    { pos: [2, 2.5, 2.5],    look: [0, 1.7, -1.5] },
+    { pos: [-1.5, 2, 2],     look: [0, 1.2, -.5] },
+    { pos: [0, 2.5, 2.8],    look: [0, 1.5, -.8] },
+    { pos: [-2, 2, 3],       look: [-.5, 1.3, 0] },
+    { pos: [1.5, 2.3, 3.5],  look: [0, 1.5, -.5] },
+];
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+function updateUploadTexture() {
+    const src = mctx.getImageData(0, 0, 512, 512);
+    const dst = screenTex.lock();
+    dst.set(src.data);
+    screenTex.unlock();
+}
+
+app.on('update', (dt) => {
+    if (paused) return;
+    elapsed += dt;
+
+    if (elapsed >= totalDur) {
+        elapsed -= totalDur;
+        loopCount++;
+        batchCounter = 0;
+        document.getElementById('loop-num').textContent = loopCount;
+    }
+
+    // find current scene
+    let acc = 0, sceneIdx = 0, sceneT = 0;
+    for (let i = 0; i < SCENES.length; i++) {
+        if (elapsed < acc + SCENES[i].dur) {
+            sceneIdx = i;
+            sceneT = (elapsed - acc) / SCENES[i].dur;
+            break;
+        }
+        acc += SCENES[i].dur;
+    }
+
+    const sc = SCENES[sceneIdx];
+
+    // update HUD
+    document.getElementById('hud-title').textContent = `SCENE ${sceneIdx + 1} : ${sc.name}`;
+    document.getElementById('hud-time').textContent = sc.time;
+    document.getElementById('hud-loop').textContent = loopCount;
+
+    // camera
+    const cf = camFrames[sceneIdx];
+    const nextCf = camFrames[(sceneIdx + 1) % SCENES.length];
+    const st = smoothstep(sceneT);
+
+    cam.setLocalPosition(
+        lerp(cf.pos[0], nextCf.pos[0], st),
+        lerp(cf.pos[1], nextCf.pos[1], st),
+        lerp(cf.pos[2], nextCf.pos[2], st)
+    );
+    cam.lookAt(
+        new pc.Vec3(
+            lerp(cf.look[0], nextCf.look[0], st),
+            lerp(cf.look[1], nextCf.look[1], st),
+            lerp(cf.look[2], nextCf.look[2], st)
+        )
+    );
+
+    // billboard: characters face camera
+    charEntity.faceCamera();
+    jvEntity.faceCamera();
+
+    // scene-specific logic
+    if (sceneIdx !== lastScene) {
+        lastScene = sceneIdx;
+        document.getElementById('narrator').textContent = narrations[sceneIdx];
+        document.getElementById('notif').classList.remove('show');
+        // default: hide JV
+        if (sceneIdx < 5) jvEntity.hide();
+    }
+
+    switch (sceneIdx) {
+        case 0: { // Creation — typing
+            charEntity.setPose('typing');
+            const bob = Math.sin(elapsed * 8) * 0.015;
+            charEntity.setPos(0, 1.1 + bob, .2);
+            jvEntity.hide();
+
+            renderMonitor([
+                '$ vim batch_updater.py',
+                '',
+                'import salesforce_api',
+                'from batch import BatchProcessor',
+                '',
+                'def run():',
+                '    ids = load_salesforce_ids()',
+                '    # 50,000 addresses to update',
+                '    for batch in chunk(ids, 1000):',
+                '        process(batch)',
+                '        log_batch(batch)',
+                '',
+                '    # Total: 50,000 IDs',
+                '',
+                '✓ File saved',
+            ], sceneT, false);
+            updateUploadTexture();
+
+            deskLamp.light.color = new pc.Color(0, .8, 0);
+            deskLamp.light.intensity = .5 + Math.sin(elapsed * 2) * .15;
+            document.getElementById('hud-ids').textContent = '0';
+            document.getElementById('hud-batches').textContent = '0 / 11,650';
+            break;
+        }
+
+        case 1: { // Press RUN
+            charEntity.setPose('typing');
+            charEntity.setPos(0, 1.1, .2);
+
+            batchCounter = Math.floor(sceneT * 50);
+            const ids1 = batchCounter * 1000;
+            renderMonitor([
+                '$ python batch_updater.py',
+                '',
+                '✓ Connected to Salesforce',
+                '✓ Loaded 50,000 IDs',
+                '',
+                '✓ Batch ' + Math.min(batchCounter, 50) + '/50 complete',
+                '✓ ' + ids1.toLocaleString() + ' IDs processed',
+                '',
+                'Processing... ' + Math.floor(sceneT * 100) + '%',
+                '',
+                sceneT > .8 ? '✓ Cycle 1 complete!' : '',
+            ], sceneT, false);
+            updateUploadTexture();
+
+            deskLamp.light.color = new pc.Color(0, 1, 0);
+            deskLamp.light.intensity = .7;
+            document.getElementById('hud-ids').textContent = ids1.toLocaleString();
+            document.getElementById('hud-batches').textContent = batchCounter + ' / 11,650';
+            break;
+        }
+
+        case 2: { // Still running
+            charEntity.setPose('away');
+            const walkX = Math.sin(sceneT * Math.PI) * 2;
+            charEntity.setPos(walkX, 1.1, .2 + sceneT * 1.5);
+
+            const cycle = Math.floor(sceneT * 100) + 1;
+            const totalBatches = cycle * 50;
+            const totalIds = totalBatches * 1000;
+            renderMonitor([
+                '$ python batch_updater.py',
+                '',
+                '⚠ Cycle ' + cycle + ' running...',
+                '⚠ Batch ' + totalBatches.toLocaleString() + ' processing',
+                '⚠ ' + totalIds.toLocaleString() + ' IDs processed',
+                '',
+                '⚠ Runtime: ' + Math.floor(sceneT * 180) + ' min',
+                '',
+                '⚠ Still going...',
+                '⚠ ...and going...',
+                '⚠ ...is this right?',
+                '',
+                sceneT > .5 ? '⚠ WARNING: High memory usage' : '',
+                sceneT > .7 ? '⚠ WARNING: Duplicate patterns detected' : '',
+            ], (sceneT * 100 % 1), false);
+            updateUploadTexture();
+
+            deskLamp.light.color = new pc.Color(.8, .8, 0);
+            deskLamp.light.intensity = .4 + Math.sin(elapsed * 3) * .2;
+            document.getElementById('hud-ids').textContent = totalIds.toLocaleString();
+            document.getElementById('hud-batches').textContent = totalBatches.toLocaleString() + ' / 11,650';
+            break;
+        }
+
+        case 3: { // The return
+            charEntity.setPose('idle');
+            const returnT = smoothstep(Math.min(sceneT * 2, 1));
+            charEntity.setPos(lerp(2, 0, returnT), 1.1, lerp(1.7, .2, returnT));
+
+            renderMonitor([
+                '$ python batch_updater.py',
+                '',
+                '❌ ALERT: Duplicate processing!',
+                '',
+                '❌ Total batches: 11,650',
+                '❌ Unique IDs: 50,000',
+                '❌ Each ID count: 233',
+                '',
+                '❌ a0t2S000003dSLXQA2 → 233x',
+                '❌ a0t2S000003dSLwQAM → 233x',
+                '❌ a0t2S000003dSM1QAM → 233x',
+                '❌ a0t2S000003dsM0QAI → 233x',
+                '',
+                '❌ ALL 50,000 IDs: EXACTLY 233x',
+            ], 1, true);
+            updateUploadTexture();
+
+            deskLamp.light.color = new pc.Color(1, .2, 0);
+            deskLamp.light.intensity = .8 + Math.sin(elapsed * 6) * .3;
+            document.getElementById('hud-ids').textContent = '11,650,000';
+            document.getElementById('hud-batches').textContent = '11,650 / 11,650';
+            break;
+        }
+
+        case 4: { // Shock
+            charEntity.setPose('shock');
+            const shk = Math.sin(elapsed * 25) * .04;
+            charEntity.setPos(shk, 1.1, .2);
+
+            renderMonitor([
+                '',
+                '  ╔══════════════════════════╗',
+                '  ║                          ║',
+                '  ║   💀 BATCH LOOP CHAOS 💀  ║',
+                '  ║                          ║',
+                '  ║   50,000 IDs             ║',
+                '  ║   × 233 cycles           ║',
+                '  ║   = 11,650,000 updates   ║',
+                '  ║                          ║',
+                '  ║   ALL IDENTICAL.          ║',
+                '  ║                          ║',
+                '  ╚══════════════════════════╝',
+                '',
+                Math.sin(elapsed * 4) > 0 ? '  >>> CTRL+C CTRL+C CTRL+C <<<' : '',
+            ], Math.abs(Math.sin(elapsed * 2)), true);
+            updateUploadTexture();
+
+            deskLamp.light.color = new pc.Color(1, 0, 0);
+            deskLamp.light.intensity = .5 + Math.sin(elapsed * 8) * .5;
+
+            if (sceneT > .15 && sceneT < .25) {
+                const notif = document.getElementById('notif');
+                notif.innerHTML = '😱 WAIT WHAT?!<br>THE SAME IDs?!<br>233 TIMES?!';
+                notif.classList.add('show');
+            }
+            if (sceneT > .5) document.getElementById('notif').classList.remove('show');
+            if (sceneT > .6 && sceneT < .7) {
+                const notif = document.getElementById('notif');
+                notif.innerHTML = '💀 NOOOOOOOO 💀';
+                notif.classList.add('show');
+            }
+            if (sceneT > .85) document.getElementById('notif').classList.remove('show');
+            break;
+        }
+
+        case 5: { // Calling JV
+            charEntity.setPose('shock');
+            // pacing back and forth nervously
+            const pace = Math.sin(elapsed * 3) * 0.5;
+            charEntity.setPos(pace, 1.1, .5);
+
+            // phone call animation on screen
+            renderMonitor([
+                '',
+                '  ┌─────────────────────────┐',
+                '  │                          │',
+                '  │   📞 CALLING: JV         │',
+                '  │                          │',
+                '  │   "The smart guy"        │',
+                '  │   "The good looking one" │',
+                '  │                          │',
+                Math.sin(elapsed * 5) > 0
+                  ? '  │   📞 ringing...          │'
+                  : '  │   📞 ring ring...        │',
+                '  │                          │',
+                sceneT > .5
+                  ? '  │   ✓ JV: "On my way."    │'
+                  : '  │   ...                    │',
+                '  │                          │',
+                '  └─────────────────────────┘',
+            ], sceneT, false);
+            updateUploadTexture();
+
+            deskLamp.light.color = new pc.Color(.8, .5, 0);
+            deskLamp.light.intensity = .6;
+
+            // JV hasn't arrived yet
+            jvEntity.hide();
+
+            if (sceneT > .3 && sceneT < .45) {
+                const notif = document.getElementById('notif');
+                notif.innerHTML = '📞 "JV! COME QUICK!<br>MY SCRIPT IS POSSESSED!"';
+                notif.style.borderColor = '#ff9800';
+                notif.style.color = '#ff9800';
+                notif.style.textShadow = '0 0 20px #ff9800';
+                notif.classList.add('show');
+            } else if (sceneT > .6 && sceneT < .75) {
+                const notif = document.getElementById('notif');
+                notif.innerHTML = '😎 JV: "Relax sis, I got this."';
+                notif.style.borderColor = '#2196F3';
+                notif.style.color = '#2196F3';
+                notif.style.textShadow = '0 0 20px #2196F3';
+                notif.classList.add('show');
+            } else {
+                document.getElementById('notif').classList.remove('show');
+            }
+            break;
+        }
+
+        case 6: { // JV Investigates
+            // awesomeyeah stands to the side nervously
+            charEntity.setPose('shock');
+            charEntity.setPos(-1.2, 1.1, .8);
+
+            // JV walks in from the right, sits down
+            jvEntity.show();
+            const jvEnterT = smoothstep(Math.min(sceneT * 3, 1));
+            const jvX = lerp(4, .3, jvEnterT);
+            jvEntity.setPos(jvX, 1.1, .2);
+
+            // JV pose progression
+            if (sceneT < .25) {
+                jvEntity.setPose('cool');  // walks in cool
+            } else if (sceneT < .5) {
+                jvEntity.setPose('thinking');  // examines the code
+            } else if (sceneT < .7) {
+                jvEntity.setPose('facepalm');  // realizes what happened
+            } else {
+                jvEntity.setPose('pointing');  // points at the bug
+            }
+
+            // Monitor shows JV's analysis
+            if (sceneT < .25) {
+                renderMonitor([
+                    '',
+                    '  JV enters the room...',
+                    '  *adjusts sunglasses*',
+                    '',
+                    '  "Let me see this code..."',
+                    '',
+                    '  $ cat batch_updater.py',
+                ], sceneT * 4, false);
+            } else if (sceneT < .5) {
+                renderMonitor([
+                    '$ cat batch_updater.py',
+                    '',
+                    'def run():',
+                    '    ids = load_salesforce_ids()',
+                    '    for batch in chunk(ids, 1000):',
+                    '        process(batch)',
+                    '',
+                    '  JV: "Hmm... wait a second..."',
+                    '  JV: "Where is the exit??"',
+                    '  JV: *scrolling intensifies*',
+                    '',
+                    '  JV: "oh... oh no..."',
+                ], sceneT * 2, false);
+            } else if (sceneT < .7) {
+                renderMonitor([
+                    '$ git log --oneline',
+                    '',
+                    '  abc1234 "add retry logic"',
+                    '  def5678 "wrap in while True"',
+                    '  ghi9012 "this should work"',
+                    '',
+                    '  ┌─────────────────────────┐',
+                    '  │  while True:  ← BRUH    │',
+                    '  │    run_all_batches()     │',
+                    '  │    # no break statement  │',
+                    '  │    # no counter          │',
+                    '  │    # just vibes          │',
+                    '  └─────────────────────────┘',
+                ], 1, true);
+            } else {
+                renderMonitor([
+                    '',
+                    '  ╔══════════════════════════╗',
+                    '  ║  JV\'s DIAGNOSIS:         ║',
+                    '  ║                          ║',
+                    '  ║  while True:             ║',
+                    '  ║    run_all_batches()     ║',
+                    '  ║                          ║',
+                    '  ║  NO BREAK. NO EXIT.      ║',
+                    '  ║  JUST INFINITE VIBES.    ║',
+                    '  ║                          ║',
+                    '  ║  "You looped the loop,   ║',
+                    '  ║   sis." - JV             ║',
+                    '  ╚══════════════════════════╝',
+                ], 1, true);
+            }
+            updateUploadTexture();
+
+            // lighting shifts to blue (JV's presence)
+            deskLamp.light.color = new pc.Color(.2, .5, 1);
+            deskLamp.light.intensity = .7 + Math.sin(elapsed * 2) * .15;
+
+            // notifications
+            if (sceneT > .5 && sceneT < .6) {
+                const notif = document.getElementById('notif');
+                notif.innerHTML = '🤦 JV: *facepalm*<br>"while True... no break..."';
+                notif.style.borderColor = '#2196F3';
+                notif.style.color = '#2196F3';
+                notif.style.textShadow = '0 0 20px #2196F3';
+                notif.classList.add('show');
+            } else if (sceneT > .75 && sceneT < .88) {
+                const notif = document.getElementById('notif');
+                notif.innerHTML = '😎 "You looped the loop, sis."<br>— JV, probably';
+                notif.style.borderColor = '#4CAF50';
+                notif.style.color = '#4CAF50';
+                notif.style.textShadow = '0 0 20px #4CAF50';
+                notif.classList.add('show');
+            } else {
+                document.getElementById('notif').classList.remove('show');
+            }
+            break;
+        }
+    }
+});
+
+function togglePause() { paused = !paused; }
+function skipScene() {
+    let acc = 0;
+    for (let i = 0; i < SCENES.length; i++) {
+        acc += SCENES[i].dur;
+        if (elapsed < acc) { elapsed = acc - 0.01; break; }
+    }
+}
+
+app.start();
+</script>
+</body>
+</html>

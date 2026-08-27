@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>awesomeyeah's Batch Processing Chaos - A Tale of Loops Gone Wrong</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: #1a1a1a;
+            border: 4px solid #00ff00;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+            color: #00ff00;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px #00ff00;
+            animation: flicker 0.15s infinite;
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+
+        .scene-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            min-height: 400px;
+        }
+
+        .scene {
+            border: 2px solid #00ff00;
+            padding: 20px;
+            position: relative;
+            background: #0a0a0a;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .scene.active {
+            display: flex;
+        }
+
+        .scene-title {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            font-size: 0.8em;
+            background: #1a1a1a;
+            padding: 0 5px;
+            color: #ffff00;
+        }
+
+        /* Pixel Art Canvas */
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            border: 2px solid #00ff00;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .desktop {
+            width: 100%;
+            height: 350px;
+            background: linear-gradient(180deg, #000080 0%, #1e1e8f 100%);
+            border: 3px solid #c0c0c0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .terminal-window {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            padding: 10px;
+        }
+
+        .terminal-header {
+            background: #000080;
+            color: #ffffff;
+            padding: 2px 5px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .terminal-content {
+            flex: 1;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+
+        .log-line {
+            margin: 2px 0;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .log-line.error {
+            color: #ff0000;
+        }
+
+        .log-line.warning {
+            color: #ffff00;
+        }
+
+        .log-line.success {
+            color: #00ff00;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #00ff00;
+            color: #000;
+            border: 2px solid #00ff00;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background: #00aa00;
+            box-shadow: 0 0 10px #00ff00;
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button.next-scene {
+            background: #ffaa00;
+            border-color: #ffaa00;
+            color: #000;
+        }
+
+        button.next-scene:hover {
+            background: #ff8800;
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Stats Panel */
+        .stats {
+            border: 2px solid #00ff00;
+            padding: 15px;
+            background: #0a0a0a;
+            margin-bottom: 20px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #003300;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #ffff00;
+        }
+
+        .stat-value {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        /* Reaction Messages */
+        .reaction {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #ffff00;
+            padding: 20px 40px;
+            font-size: 2em;
+            text-align: center;
+            display: none;
+            z-index: 1000;
+            animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+        }
+
+        .reaction.show {
+            display: block;
+        }
+
+        .reaction.shock {
+            border-color: #ff0000;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
+
+        /* Animations */
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .shake {
+            animation: shake 0.3s;
+        }
+
+        /* Scene content */
+        .pixel-art {
+            text-align: center;
+            font-size: 3em;
+            margin: 20px 0;
+        }
+
+        .description {
+            color: #ffff00;
+            margin: 15px 0;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .scene-2 {
+            grid-column: 1 / -1;
+        }
+
+        .time-display {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 0.8em;
+            background: #1a1a1a;
+            padding: 0 5px;
+            color: #00ff00;
+        }
+
+        .iteration-counter {
+            font-size: 1.2em;
+            color: #ff0000;
+            font-weight: bold;
+            margin: 20px 0;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
+        .glitch {
+            animation: glitch 0.3s;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.8em;
+            opacity: 0.6;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ awesomeyeah's BATCH LOOP CHAOS ⚡</h1>
+        <div class="subtitle">A tragic tale of one developer, one script, and one very enthusiastic loop</div>
+
+        <!-- Scene 1: Writing the Script -->
+        <div class="scene scene-1 active">
+            <div class="scene-title">SCENE 1: The Creation (2:00 PM)</div>
+            <div class="time-display" id="time1">14:00</div>
+            <div class="desktop">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <span>C:\Users\awesomeyeah\script.py</span>
+                        <span>████</span>
+                    </div>
+                    <div class="terminal-content" id="terminal1">
+                        <div class="log-line">$ python script.py</div>
+                        <div class="log-line success">✓ Script initialized successfully</div>
+                        <div class="log-line">Processing Salesforce batch updates...</div>
+                        <div class="log-line success">✓ Batch 1 complete - 1000 IDs processed</div>
+                        <div class="log-line success">✓ Batch 2 complete - 1000 IDs processed</div>
+                        <div class="log-line success">✓ Batch 3 complete - 1000 IDs processed</div>
+                        <div class="log-line" style="color: #00ff00;">✓ Processing completed</div>
+                        <div class="log-line">&gt;</div>
+                    </div>
+                </div>
+            </div>
+            <div class="description">
+                awesomeyeah confidently deploys her batch processing script.<br>
+                <strong>"This will handle all the Salesforce updates!"</strong><br>
+                ✨ Little did she know... ✨
+            </div>
+        </div>
+
+        <!-- Scene 2: The Loop Continues -->
+        <div class="scene scene-2">
+            <div class="scene-title">SCENE 2: Still Running... (3:00 PM - Wait, what?)</div>
+            <div class="time-display" id="time2">15:00</div>
+            <div class="desktop">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <span>C:\Users\awesomeyeah\script.py</span>
+                        <span>████</span>
+                    </div>
+                    <div class="terminal-content" id="terminal2">
+                        <div class="log-line">$ python script.py</div>
+                        <div class="log-line success">✓ Batch 1 complete - 1000 IDs processed</div>
+                        <div class="log-line success">✓ Batch 2 complete - 1000 IDs processed</div>
+                        <div class="log-line warning">> Batch 3 running...</div>
+                        <div class="log-line warning">> Batch 4 running...</div>
+                        <div class="log-line warning">> Batch 5 running...</div>
+                        <div class="log-line warning">> Batch 50 running...</div>
+                        <div class="log-line error">⚠ Still processing...</div>
+                        <div class="log-line">&gt;</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-row">
+                    <span class="stat-label">TOTAL IDS PROCESSED:</span>
+                    <span class="stat-value" id="stat-total">50,000</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">CYCLES COMPLETED:</span>
+                    <span class="stat-value" id="stat-cycles">1</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">ESTIMATED TIME LEFT:</span>
+                    <span class="stat-value" id="stat-time">Calculating... 🤔</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">STATUS:</span>
+                    <span class="stat-value error" id="stat-status">RUNNING (WHY?)</span>
+                </div>
+            </div>
+
+            <div class="description">
+                <strong>awesomeyeah</strong> went for a coffee break... and then a nap...<br>
+                The script? Still vibing. Processing the SAME 50,000 IDs again.<br>
+                <span style="color: #ffff00;">Oh no.</span>
+            </div>
+        </div>
+
+        <!-- Scene 3: The Discovery -->
+        <div class="scene scene-3">
+            <div class="scene-title">SCENE 3: The Realization (5:00 PM)</div>
+            <div class="time-display" id="time3">17:00</div>
+            <div class="desktop">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <span>C:\Users\awesomeyeah\script.py</span>
+                        <span>████</span>
+                    </div>
+                    <div class="terminal-content" id="terminal3">
+                        <div class="log-line">$ python script.py</div>
+                        <div class="log-line warning">⚠ WARNING: Duplicate processing detected!</div>
+                        <div class="log-line error">❌ CRITICAL: Same IDs being processed repeatedly</div>
+                        <div class="log-line error" style="animation: pulse 0.5s infinite;">🔴 CYCLE 50 COMPLETED - 11,650 FILES GENERATED</div>
+                        <div class="log-line error">Each ID processed: 233 TIMES</div>
+                        <div class="log-line error">Current status: STILL RUNNING!!!!</div>
+                        <div class="log-line warning">>>> This is not ideal</div>
+                        <div class="log-line">&gt;</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="iteration-counter" id="shock-counter">
+                233 COMPLETE ITERATIONS OF THE SAME 50,000 IDS!
+            </div>
+
+            <div class="description">
+                <strong>awesomeyeah returns from her coffee break...</strong><br>
+                Checks the logs... once... twice... THREE TIMES?<br>
+                <span style="color: #ff0000; font-weight: bold;">SOMETHING IS VERY WRONG.</span>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button onclick="startScene1()">🎬 START STORY</button>
+            <button onclick="advanceTime()" id="advance-btn">⏭️ ADVANCE TIME</button>
+            <button id="iteration-btn" style="display: none;" onclick="startIteration()">
+                ▶️ PRESS TO ITERATE
+            </button>
+            <button onclick="playShockReaction()" id="shock-btn" style="display: none;">
+                😱 SHOW SHOCK REACTION
+            </button>
+            <button onclick="location.reload()" style="background: #aa0000; border-color: #aa0000;">🔄 RESTART</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-row">
+                <span class="stat-label">CURRENT SCENE:</span>
+                <span class="stat-value" id="current-scene">Scene 1 - The Creation</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">ELAPSED TIME:</span>
+                <span class="stat-value" id="elapsed-time">0 minutes</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">ITERATIONS PERFORMED:</span>
+                <span class="stat-value" id="iteration-count">0</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            💀 Based on a true story of batch processing gone wrong 💀<br>
+            "A loop here, a loop there, suddenly it's 233 loops everywhere" - awesomeyeah (probably)
+        </div>
+    </div>
+
+    <div class="reaction" id="shock-reaction">
+        <div style="font-size: 2.5em; margin-bottom: 10px;">😱😱😱</div>
+        WAIT WHAT?!?!<br>
+        <div style="font-size: 1.2em; margin-top: 10px;">
+            THE SAME IDs?<br>
+            233 TIMES?!<br>
+            <span style="color: #ff00ff; animation: pulse 0.5s infinite;">NOOOOOO</span>
+        </div>
+    </div>
+
+    <script>
+        let currentScene = 0;
+        let startTime = Date.now();
+        let iterationCount = 0;
+        const scenes = document.querySelectorAll('.scene');
+
+        function showScene(sceneNum) {
+            scenes.forEach((scene, index) => {
+                scene.classList.remove('active');
+                if (index === sceneNum) {
+                    scene.classList.add('active');
+                }
+            });
+            currentScene = sceneNum;
+            updateSceneInfo();
+        }
+
+        function startScene1() {
+            showScene(0);
+            iterationCount = 0;
+            startTime = Date.now();
+            document.getElementById('iteration-btn').style.display = 'none';
+            document.getElementById('shock-btn').style.display = 'none';
+            document.getElementById('advance-btn').style.display = 'inline-block';
+            document.getElementById('iteration-count').textContent = '0';
+        }
+
+        function advanceTime() {
+            if (currentScene === 0) {
+                // Transition to scene 2
+                showScene(1);
+                document.getElementById('iteration-btn').style.display = 'inline-block';
+                document.getElementById('advance-btn').textContent = '⏭️ WAIT 3 HOURS';
+                simulateProcessing();
+            } else if (currentScene === 1) {
+                // Transition to scene 3
+                showScene(2);
+                document.getElementById('iteration-btn').style.display = 'none';
+                document.getElementById('shock-btn').style.display = 'inline-block';
+                document.getElementById('advance-btn').style.display = 'none';
+                revealDisaster();
+            }
+        }
+
+        function startIteration() {
+            iterationCount++;
+            document.getElementById('iteration-count').textContent = iterationCount;
+            
+            const cycleNum = Math.floor(iterationCount / 50) + 1;
+            document.getElementById('stat-cycles').textContent = cycleNum;
+            
+            const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
+            document.getElementById('elapsed-time').textContent = elapsedMinutes + ' minutes';
+            
+            // Add animation effect
+            document.getElementById('stat-cycles').parentElement.classList.add('glitch');
+            setTimeout(() => {
+                document.getElementById('stat-cycles').parentElement.classList.remove('glitch');
+            }, 300);
+            
+            // Update terminal with new batch info
+            const terminal = document.getElementById('terminal2');
+            const newBatch = iterationCount + 2;
+            const newLine = document.createElement('div');
+            newLine.className = 'log-line warning';
+            newLine.textContent = `✓ Batch ${newBatch} complete - 1000 IDs processed (AGAIN!)`;
+            terminal.appendChild(newLine);
+            terminal.parentElement.scrollTop = terminal.parentElement.scrollHeight;
+
+            if (iterationCount >= 233) {
+                document.getElementById('iteration-btn').disabled = true;
+                document.getElementById('shock-btn').style.display = 'inline-block';
+            }
+        }
+
+        function simulateProcessing() {
+            const terminal = document.getElementById('terminal2');
+            const lines = [
+                { text: '> Processing batch 4...', class: 'warning' },
+                { text: '> Processing batch 5...', class: 'warning' },
+                { text: '> Still going...', class: 'warning' },
+                { text: '> And still...', class: 'warning' },
+                { text: '> Hmm...', class: 'warning' },
+                { text: '> This is taking longer than expected', class: 'warning' },
+            ];
+
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < lines.length) {
+                    const line = document.createElement('div');
+                    line.className = 'log-line ' + lines[i].class;
+                    line.textContent = lines[i].text;
+                    terminal.appendChild(line);
+                    terminal.parentElement.scrollTop = terminal.parentElement.scrollHeight;
+                    i++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 300);
+        }
+
+        function revealDisaster() {
+            const terminal = document.getElementById('terminal3');
+            const errorLine = terminal.querySelector('.log-line.error');
+            if (errorLine) {
+                errorLine.classList.add('glitch');
+                setTimeout(() => errorLine.classList.remove('glitch'), 300);
+            }
+            document.querySelector('.container').classList.add('shake');
+            setTimeout(() => {
+                document.querySelector('.container').classList.remove('shake');
+            }, 300);
+        }
+
+        function playShockReaction() {
+            const reaction = document.getElementById('shock-reaction');
+            reaction.classList.add('show', 'shock');
+            
+            document.querySelector('.container').classList.add('shake');
+            setTimeout(() => {
+                document.querySelector('.container').classList.remove('shake');
+            }, 300);
+
+            setTimeout(() => {
+                reaction.classList.remove('show');
+            }, 3000);
+        }
+
+        function updateSceneInfo() {
+            const sceneNames = [
+                'Scene 1 - The Creation',
+                'Scene 2 - Still Running (The Horror)',
+                'Scene 3 - The Realization'
+            ];
+            document.getElementById('current-scene').textContent = sceneNames[currentScene];
+        }
+
+        // Initialize
+        updateSceneInfo();
+    </script>
+</body>
+</html>
