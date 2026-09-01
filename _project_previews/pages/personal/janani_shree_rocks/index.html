@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daughter Face Reveal 👶</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        .cupid-float {
+            position: fixed;
+            font-size: 3rem;
+            pointer-events: none;
+            z-index: 1000;
+            will-change: top, left;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 4px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            aspect-ratio: 1;
+        }
+
+        .grid-block {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .grid-block:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .reveal-animation {
+            animation: revealPulse 0.6s ease-out;
+        }
+
+        @keyframes revealPulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .confetti-trigger {
+            animation: confettiPop 0.8s ease-out;
+        }
+
+        @keyframes confettiPop {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .timer {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .full-image-reveal {
+            max-width: 90vw;
+            max-height: 90vh;
+            width: auto;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: zoomIn 0.8s ease-out;
+        }
+
+        @keyframes zoomIn {
+            from {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 min-h-screen">
+    <!-- Cupid Character -->
+    <div class="cupid-float" style="left: 10%; top: 10%;">👼</div>
+
+    <!-- Main Container -->
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 mb-2">
+                👶 Daughter Face Reveal
+            </h1>
+            <p class="text-xl text-gray-700 mb-4">
+                A special surprise waiting to be discovered...
+            </p>
+            <div class="timer" id="countdown">
+                Counting down to September 3rd, 2026...
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div id="mainContent" class="w-full max-w-4xl">
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center">
+                <div class="inline-block">
+                    <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mb-4"></div>
+                    <p class="text-gray-700 text-lg">Loading the magical grid...</p>
+                </div>
+            </div>
+
+            <!-- Grid Display (hidden initially) -->
+            <div id="gridDisplay" class="hidden">
+                <div class="grid-container" id="gridContainer"></div>
+                <div class="text-center mt-8">
+                    <p class="text-gray-600 text-sm">
+                        Grid blocks: <span id="blockCount">?</span> | 
+                        Current block: <span id="currentBlock">?</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Full Image Reveal (shown on Sept 3rd) -->
+            <div id="fullImageDisplay" class="hidden text-center">
+                <div class="mb-8">
+                    <h2 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600 mb-6">
+                        ✨ Wooohhhooooooooooooooooooo! ✨
+                    </h2>
+                    <img id="fullImage" alt="Full Revealed Image" class="full-image-reveal mx-auto">
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Footer -->
+        <div class="mt-12 text-center text-sm text-gray-600">
+            <p>🎉 Each day, 12 new random grid blocks reveal!</p>
+            <p>📅 Check back daily for more of the picture</p>
+            <p id="dateInfo"></p>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="image_processor.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
