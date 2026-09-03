@@ -13,6 +13,12 @@ defaults:
       layout: "project"
       preview_name: "janani_shree"
   - scope:
+      path: "pages/personal/janani_shree_rocks"
+      type: "project_previews"
+    values:
+      layout: "project"
+      preview_name: "janani_shree_open"
+  - scope:
       path: "pages/personal/bro_stuck_in_the_loop"
       type: "project_previews"
     values:

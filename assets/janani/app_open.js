@@ -10,7 +10,7 @@ class DaughterRevealApp {
         this.gridSize = 128;
         this.maxRevealBlocksNum = 12;
         this.currentBlocks = [];  // Array of 6 blocks
-        this.targetDate = new Date(2026, 8, 20, 8, 30, 0); // September 3, 2026 8:30AM
+        this.targetDate = new Date(2026, 8, 3, 12, 30, 0); // September 3, 2026 8:30AM
         this.cupidElement = null;
         this.cupidAnimationId = null;
         this.init();
